@@ -17,6 +17,7 @@ services:
     volumes:
       - ./apps/backend:/app
       - ./data/uploads:/data/uploads
+      - ./data/chroma:/data/chroma
     networks:
       - chatnet
 

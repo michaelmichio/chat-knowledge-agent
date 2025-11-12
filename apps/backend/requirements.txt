@@ -12,3 +12,5 @@ alembic
 python-multipart
 pymupdf
 python-docx
+sentence-transformers
+numpy

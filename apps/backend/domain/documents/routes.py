@@ -8,6 +8,7 @@ import os
 import shutil
 import uuid
 from domain.documents.extractor import extract_text
+from domain.documents.embedder import store_embeddings
 
 router = APIRouter(prefix="/docs", tags=["documents"])
 
@@ -15,6 +16,22 @@ router = APIRouter(prefix="/docs", tags=["documents"])
 def get_docs(db: Session = Depends(get_db)):
     """Ambil semua dokumen."""
     return db.query(models.Document).all()
+
+@router.post("/embed/{doc_id}")
+def embed_doc(doc_id: str, db: Session = Depends(get_db)):
+    doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not doc.extracted_text:
+        raise HTTPException(status_code=400, detail="Document has no extracted text yet")
+
+    count = store_embeddings(str(doc.id), doc.extracted_text)
+    doc.status = "embedded"
+    db.commit()
+    db.refresh(doc)
+
+    return {"message": f"{count} chunks embedded for document {doc.filename}"}
+
 
 @router.post("/extract/{doc_id}", response_model=schemas.DocumentOut)
 def extract_doc(doc_id: str, db: Session = Depends(get_db)):
