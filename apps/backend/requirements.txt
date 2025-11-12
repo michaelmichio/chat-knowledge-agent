@@ -10,3 +10,5 @@ python-dotenv
 chromadb
 alembic
 python-multipart
+pymupdf
+python-docx

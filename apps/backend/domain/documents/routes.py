@@ -7,6 +7,7 @@ from datetime import datetime
 import os
 import shutil
 import uuid
+from domain.documents.extractor import extract_text
 
 router = APIRouter(prefix="/docs", tags=["documents"])
 
@@ -14,6 +15,26 @@ router = APIRouter(prefix="/docs", tags=["documents"])
 def get_docs(db: Session = Depends(get_db)):
     """Ambil semua dokumen."""
     return db.query(models.Document).all()
+
+@router.post("/extract/{doc_id}", response_model=schemas.DocumentOut)
+def extract_doc(doc_id: str, db: Session = Depends(get_db)):
+    doc = db.query(models.Document).filter(models.Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    settings = get_settings()
+    path = os.path.join(settings.UPLOAD_DIR, f"{doc.id}{os.path.splitext(doc.filename)[1]}")
+
+    try:
+        content = extract_text(path, doc.filetype)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    doc.extracted_text = content
+    doc.status = "extracted"
+    db.commit()
+    db.refresh(doc)
+    return doc
 
 @router.post("/upload", response_model=schemas.DocumentOut)
 async def upload_doc(
