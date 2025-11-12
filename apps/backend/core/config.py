@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     REDIS_URL: str
     VECTOR_DB_URL: str
     CORS_ORIGINS: str = "http://localhost:3000"
+    
+    UPLOAD_DIR: str = "/data/uploads"
+    MAX_UPLOAD_MB: int = 25
+    ALLOWED_MIME: str = "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv"
 
     class Config:
         env_file = ".env"
