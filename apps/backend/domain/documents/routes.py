@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Query
 from sqlalchemy.orm import Session
 from infra.db.postgres import get_db
 from domain.documents import models, schemas
@@ -8,7 +8,8 @@ import os
 import shutil
 import uuid
 from domain.documents.extractor import extract_text
-from domain.documents.embedder import store_embeddings
+from domain.documents.embedder import store_embeddings, get_client
+from sentence_transformers import SentenceTransformer
 
 router = APIRouter(prefix="/docs", tags=["documents"])
 
@@ -16,6 +17,35 @@ router = APIRouter(prefix="/docs", tags=["documents"])
 def get_docs(db: Session = Depends(get_db)):
     """Ambil semua dokumen."""
     return db.query(models.Document).all()
+
+@router.get("/query")
+def query_docs(q: str = Query(..., description="Pertanyaan atau kata kunci"),
+               top_k: int = 3):
+    client = get_client("/data/chroma")
+    collection = client.get_or_create_collection("documents")
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    query_emb = model.encode([q], convert_to_numpy=True).tolist()[0]
+
+    results = collection.query(
+        query_embeddings=[query_emb],
+        n_results=top_k
+    )
+
+    docs = results.get("documents", [[]])[0]
+    metas = results.get("metadatas", [[]])[0]
+
+    combined = []
+    for i, d in enumerate(docs):
+        meta = metas[i] if i < len(metas) else {}
+        combined.append({
+            "rank": i + 1,
+            "document_id": meta.get("document_id"),
+            "chunk_index": meta.get("chunk_index"),
+            "content": d
+        })
+
+    return {"query": q, "results": combined}
 
 @router.post("/embed/{doc_id}")
 def embed_doc(doc_id: str, db: Session = Depends(get_db)):
