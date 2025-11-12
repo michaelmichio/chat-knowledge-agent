@@ -8,3 +8,4 @@ redis
 httpx
 python-dotenv
 chromadb
+alembic
