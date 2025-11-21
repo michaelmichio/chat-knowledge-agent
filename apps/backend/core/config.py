@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "/data/uploads"
     MAX_UPLOAD_MB: int = 25
     ALLOWED_MIME: str = "application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/csv"
+    
+    OPENAI_API_KEY: str | None = None
+    LLM_PROVIDER: str = "openai"
+    
+    # ⬅️ custom model provider
+    CUSTOM_LLM_URL: str | None = None
+    CUSTOM_LLM_TOKEN: str | None = None
+    CUSTOM_LLM_MODEL: str = "Qwen2.5-7B"
 
     class Config:
         env_file = ".env"

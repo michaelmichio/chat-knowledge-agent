@@ -1,5 +1,4 @@
-import os
-import sys
+import os, sys
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
@@ -9,10 +8,13 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../app
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
-# --- IMPORT SETUP
+# --- IMPORT SETUP (jangan import Base dari mana pun selain base.py)
 from core.config import get_settings
 from infra.db.base import Base
-from domain.documents.models import Document  # ⬅️ import langsung model
+
+# --- IMPORT ALL MODELS (tidak boleh ada import model dalam base.py)
+from domain.documents.models import Document
+from domain.chat.models import ChatSession, ChatMessage  # <-- penting: import di sini, bukan di base.py
 
 # --- Alembic config
 config = context.config
@@ -21,9 +23,10 @@ fileConfig(config.config_file_name)
 settings = get_settings()
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
+# target metadata sekarang sudah berisi Document + ChatSession + ChatMessage
 target_metadata = Base.metadata
 
-print("🔍 DEBUG target_metadata:", target_metadata.tables.keys())  # ⬅️ tampilkan di log
+print("🔍 DEBUG target_metadata:", target_metadata.tables.keys())  # debug
 
 def run_migrations_offline():
     context.configure(
@@ -52,7 +55,7 @@ def run_migrations_online():
             compare_server_default=True,
         )
 
-        print("🔍 DEBUG Alembic sees tables:", target_metadata.tables.keys())  # ⬅️ tampilkan di log
+        print("🔍 DEBUG Alembic sees tables:", target_metadata.tables.keys())  # debug
 
         with context.begin_transaction():
             context.run_migrations()

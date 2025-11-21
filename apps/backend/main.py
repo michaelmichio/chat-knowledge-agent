@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import get_settings
 from core.logger import logger
 from core.exceptions import register_exception_handlers
+from domain.chat.routes import router as chat_router
 from domain.documents.routes import router as docs_router
 
 settings = get_settings()
@@ -21,6 +22,8 @@ app.add_middleware(
 # --- Register global error handler
 register_exception_handlers(app)
 
+# daftar router
+app.include_router(chat_router)
 app.include_router(docs_router)
 
 # --- Root endpoint (health check)

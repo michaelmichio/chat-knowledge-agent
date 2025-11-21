@@ -38,3 +38,17 @@ def store_embeddings(doc_id: str, text: str, persist_dir="/data/chroma"):
     )
 
     return len(chunks)
+
+def delete_document_embeddings(doc_id: str):
+    client = get_client("/data/chroma")
+    collection = client.get_or_create_collection("documents")
+
+    # ambil semua id embeddings
+    all_ids = collection.get()["ids"]
+
+    # filter semua embedding milik dokumen ini
+    target_ids = [eid for eid in all_ids if eid.startswith(f"{doc_id}_")]
+
+    if target_ids:
+        collection.delete(ids=target_ids)
+

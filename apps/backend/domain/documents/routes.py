@@ -10,13 +10,129 @@ import uuid
 from domain.documents.extractor import extract_text
 from domain.documents.embedder import store_embeddings, get_client
 from sentence_transformers import SentenceTransformer
+from domain.documents.llm_client import generate_answer
+from domain.documents.embedder import delete_document_embeddings, chunk_text
+from domain.documents.models import Document
 
 router = APIRouter(prefix="/docs", tags=["documents"])
 
-@router.get("/", response_model=list[schemas.DocumentOut])
-def get_docs(db: Session = Depends(get_db)):
-    """Ambil semua dokumen."""
-    return db.query(models.Document).all()
+UPLOAD_DIR = "/data/uploads"
+CHROMA_DIR = "/data/chroma"
+CACHE_DIR = "/data/cache"  # if exists (opsional)
+
+@router.get("/inspect")
+def inspect_documents(db: Session = Depends(get_db)):
+    # 1. Uploaded files
+    uploads = []
+    if os.path.exists(UPLOAD_DIR):
+        uploads = os.listdir(UPLOAD_DIR)
+
+    # 2. Metadata from DB
+    docs = db.query(Document).all()
+    metadata = [
+        {
+            "id": str(doc.id),
+            "filename": doc.filename,
+            "filetype": doc.filetype,
+            "status": doc.status,
+            "has_extracted_text": doc.extracted_text is not None and len(doc.extracted_text) > 0,
+            "created_at": doc.created_at
+        }
+        for doc in docs
+    ]
+
+    # 3. Embeddings (list ids stored in Chroma)
+    try:
+        client = get_client(CHROMA_DIR)
+        collection = client.get_or_create_collection("documents")
+        embeddings_ids = collection.get()["ids"]
+    except Exception:
+        embeddings_ids = []
+
+    # 4. Cache folder (opsional)
+    cache_files = []
+    if os.path.exists(CACHE_DIR):
+        cache_files = os.listdir(CACHE_DIR)
+
+    return {
+        "uploads": uploads,
+        "metadata_count": len(metadata),
+        "metadata": metadata,
+        "embeddings": embeddings_ids,
+        "cache": cache_files
+    }
+
+# @router.post("/reindex")
+# def reindex_documents(db: Session = Depends(get_db)):
+#     # INIT CLIENT
+#     client = get_client("/data/chroma")
+#     collection = client.get_or_create_collection("documents")
+
+#     # 1. CLEAR ALL EMBEDDINGS
+#     try:
+#         collection.delete(where={})  # hapus semua vector
+#     except Exception as e:
+#         print("Error clearing Chroma:", e)
+
+#     # 2. LOAD ALL DOCS
+#     docs = db.query(Document).all()
+
+#     model = SentenceTransformer("all-MiniLM-L6-v2")
+
+#     total_chunks = 0
+
+#     # 3. RE-EMBED
+#     for doc in docs:
+#         if not doc.extracted_text:
+#             continue
+
+#         chunks = chunk_text(doc.extracted_text)
+#         embeddings = model.encode(chunks, convert_to_numpy=True).tolist()
+
+#         ids = [f"{doc.id}-{i}" for i in range(len(chunks))]
+
+#         collection.add(ids=ids, documents=chunks, embeddings=embeddings)
+#         total_chunks += len(chunks)
+
+#     return {
+#         "message": "Reindex complete",
+#         "documents": len(docs),
+#         "chunks_created": total_chunks
+#     }
+
+
+# @router.get("/", response_model=list[schemas.DocumentOut])
+# def get_docs(db: Session = Depends(get_db)):
+#     """Ambil semua dokumen."""
+#     return db.query(models.Document).all()
+
+@router.get("/ask")
+def ask_question(q: str = Query(..., description="Pertanyaan user"), top_k: int = 3):
+    client = get_client("/data/chroma")
+    collection = client.get_or_create_collection("documents")
+
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    query_emb = model.encode([q], convert_to_numpy=True).tolist()[0]
+
+    results = collection.query(query_embeddings=[query_emb], n_results=top_k)
+
+    docs = results.get("documents", [[]])[0]
+    context = "\n\n".join(docs)
+
+    prompt = f"""
+    Gunakan konteks berikut untuk menjawab pertanyaan.
+
+    KONTEKS:
+    {context}
+
+    PERTANYAAN:
+    {q}
+
+    Jawab dengan jelas dan ringkas dalam bahasa Indonesia.
+    """
+
+    answer = generate_answer(prompt)
+    return {"question": q, "answer": answer, "context_used": docs}
 
 @router.get("/query")
 def query_docs(q: str = Query(..., description="Pertanyaan atau kata kunci"),
@@ -136,3 +252,114 @@ async def upload_doc(
     db.refresh(doc)
 
     return doc
+
+# @router.delete("/{doc_id}")
+# def delete_document(doc_id: str, db: Session = Depends(get_db)):
+#     # 1. cari metadata
+#     doc = db.query(Document).filter(Document.id == doc_id).first()
+#     if not doc:
+#         raise HTTPException(status_code=404, detail="Document not found")
+
+#     # 2. hapus file upload
+#     file_path = os.path.join(UPLOAD_DIR, doc.filename)
+#     if os.path.exists(file_path):
+#         os.remove(file_path)
+
+#     # 3. hapus embeddings
+#     delete_document_embeddings(doc_id)
+
+#     # 4. hapus metadata dari database
+#     db.delete(doc)
+#     db.commit()
+
+#     return {
+#         "message": f"Document {doc_id} deleted completely",
+#         "deleted": {
+#             "file": True,
+#             "embeddings": True,
+#             "metadata": True,
+#             "extract": True,     # karena extracted_text berada di metadata
+#         }
+#     }
+
+# @router.delete("/")
+# def delete_all_documents(db: Session = Depends(get_db)):
+
+#     # 1. Hapus semua file upload
+#     for f in os.listdir(UPLOAD_DIR):
+#         path = os.path.join(UPLOAD_DIR, f)
+#         if os.path.isfile(path):
+#             os.remove(path)
+
+#     # 2. Hapus semua embeddings (reset chroma)
+#     chroma_dir = "/data/chroma"
+#     if os.path.exists(chroma_dir):
+#         import shutil
+#         shutil.rmtree(chroma_dir)
+#         os.makedirs(chroma_dir)
+
+#     # 3. Hapus extracted_text + rows
+#     db.query(Document).delete()
+#     db.commit()
+
+#     return {"message": "All documents + extract + embeddings deleted successfully"}
+
+@router.post("/process")
+async def process_document(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    # -------------------------------
+    # 1. UPLOAD
+    # -------------------------------
+    filename = file.filename
+    save_path = os.path.join(UPLOAD_DIR, filename)
+
+    # simpan file fisik
+    with open(save_path, "wb") as f:
+        f.write(await file.read())
+
+    # buat metadata di DB
+    doc = Document(filename=filename, filetype=file.content_type)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+
+    # -------------------------------
+    # 2. EXTRACT
+    # -------------------------------
+    extracted_text = extract_text(save_path, file.content_type)
+
+    if not extracted_text or len(extracted_text.strip()) < 5:
+        raise HTTPException(status_code=400, detail="Failed to extract text")
+
+    doc.extracted_text = extracted_text
+    doc.status = "extracted"
+    db.commit()
+
+    # -------------------------------
+    # 3. EMBED
+    # -------------------------------
+    # chunking
+    chunks = chunk_text(extracted_text)
+
+    # embedding
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+    embeddings = model.encode(chunks, convert_to_numpy=True).tolist()
+
+    # simpan ke Chroma
+    client = get_client("/data/chroma")
+    collection = client.get_or_create_collection("documents")
+
+    ids = [f"{doc.id}-{i}" for i in range(len(chunks))]
+    collection.add(ids=ids, documents=chunks, embeddings=embeddings)
+
+    doc.status = "embedded"
+    db.commit()
+
+    return {
+        "doc_id": str(doc.id),
+        "filename": filename,
+        "message": "Upload + extract + embed completed",
+        "chunks_created": len(chunks)
+    }
+
+
+
