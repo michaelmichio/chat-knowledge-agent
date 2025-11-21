@@ -3,7 +3,6 @@
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useChatStore } from "@/store/chatStore";
-import ChatLayout from "@/components/chat/ChatLayout";
 
 export default function ChatSessionPage() {
   const params = useParams();
@@ -18,5 +17,5 @@ export default function ChatSessionPage() {
     setCurrentSessionId(sessionId);
   }, [sessionId, setCurrentSessionId]);
 
-  return <ChatLayout sessionId={sessionId} />;
+  return <></>;
 }

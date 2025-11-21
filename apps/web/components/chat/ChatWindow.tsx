@@ -16,60 +16,93 @@ interface Props {
 
 export default function ChatWindow({ sessionId }: Props) {
   const router = useRouter();
+
+  const [localMessages, setLocalMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
 
-  const {
-    data: messages,
-    isLoading,
-    refetch,
-  } = useQuery<ChatMessage[]>({
+  // Fetch pesan dari backend
+  const { data: messages } = useQuery<ChatMessage[]>({
     queryKey: ["messages", sessionId],
     queryFn: async () => {
-      if (!sessionId) return [];
+      if (!sessionId) {
+        return []};
       const res = await api.get(`/chat/${sessionId}/messages`);
       return res.data;
     },
     enabled: !!sessionId,
+    refetchOnWindowFocus: false, // ⛔ JANGAN fetch ketika window fokus
+    refetchOnMount: false, // ⛔ JANGAN fetch ketika component mount
+    refetchOnReconnect: false, // ⛔ JANGAN fetch ketika internet kembali
+    retry: false,
   });
 
   useEffect(() => {
-    // scroll to bottom after messages load
+    if (!sessionId) setLocalMessages([]);
+  }, [sessionId]);
+
+  // Sinkronisasi messages backend ke localMessages
+  useEffect(() => {
+    if (messages) setLocalMessages(messages);
+  }, [messages]);
+
+  // Scroll otomatis
+  useEffect(() => {
     const el = document.getElementById("chat-scroll-anchor");
     if (el) el.scrollIntoView({ behavior: "smooth" });
-  }, [messages?.length]);
+  }, [localMessages.length, isSending]);
 
+  // =============================
+  //           HANDLE SEND
+  // =============================
   const handleSend = async (text: string) => {
     try {
       setIsSending(true);
 
-      // CASE 1: Belum ada session → buat dulu, lalu kirim, lalu redirect
-      if (!sessionId) {
-        const startRes = await api.post("/chat/start");
-        const newId = startRes.data.id;
+      // optimistic user message
+      const userMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "user",
+        content: text,
+      };
+      setLocalMessages((prev) => [...prev, userMessage]);
 
+      // CASE 1: create new session
+      if (!sessionId) {
+        const start = await api.post("/chat/start");
+        const newId = start.data.id;
+
+        // send message
         await api.post("/chat/send", null, {
           params: { session_id: newId, message: text },
         });
 
+        // redirect → page only fetches once
         router.push(`/c/${newId}`);
+
         return;
       }
 
-      // CASE 2: sudah ada session → kirim langsung
-      await api.post("/chat/send", null, {
+      // CASE 2: existing session
+      const res = await api.post("/chat/send", null, {
         params: { session_id: sessionId, message: text },
       });
 
-      await refetch();
-    } catch (e) {
-      console.error(e);
+      const assistantMessage: ChatMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: res.data.answer,
+      };
+
+      setLocalMessages((prev) => [...prev, assistantMessage]);
+    } catch (err) {
+      console.error(err);
       alert("Gagal mengirim pesan");
     } finally {
       setIsSending(false);
     }
   };
 
-  const hasMessages = (messages?.length || 0) > 0;
+  const hasMessages = localMessages.length > 0;
 
   return (
     <div className="flex flex-col h-full bg-white">
@@ -79,7 +112,7 @@ export default function ChatWindow({ sessionId }: Props) {
 
       <ScrollArea className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-6">
-          {!hasMessages && !isLoading && (
+          {!hasMessages && (
             <div className="text-center text-neutral-400 text-sm mt-20 space-y-2">
               <p className="text-lg font-medium text-neutral-800">
                 How can I help you today?
@@ -90,9 +123,11 @@ export default function ChatWindow({ sessionId }: Props) {
             </div>
           )}
 
-          {messages?.map((m) => (
-            <MessageBubble key={m.id} role={m.role} content={m.content} />
-          ))}
+          {localMessages
+            .filter((m) => m && m.role && m.content)
+            .map((m) => (
+              <MessageBubble key={m.id} role={m.role} content={m.content} />
+            ))}
 
           {isSending && <TypingBubble />}
 

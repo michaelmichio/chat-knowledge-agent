@@ -1,3 +1,4 @@
+import ChatLayout from "@/components/chat/ChatLayout";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Inter } from "next/font/google";
@@ -21,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable}>
       <body className="bg-white text-neutral-900">
-        <Providers>{children}</Providers>
+        <Providers>
+          <ChatLayout />
+          {children}
+        </Providers>
       </body>
     </html>
   );

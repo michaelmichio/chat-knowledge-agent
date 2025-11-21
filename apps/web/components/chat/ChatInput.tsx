@@ -38,7 +38,7 @@ export default function ChatInput({ onSend, disabled }: Props) {
           disabled={disabled}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="min-h-[44px] max-h-40 resize-none text-sm bg-neutral-50"
+          className="min-h-11 max-h-40 resize-none text-sm bg-neutral-50"
           placeholder="Message Chat Agent..."
         />
         <Button
