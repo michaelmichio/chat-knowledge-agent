@@ -253,34 +253,34 @@ async def upload_doc(
 
     return doc
 
-# @router.delete("/{doc_id}")
-# def delete_document(doc_id: str, db: Session = Depends(get_db)):
-#     # 1. cari metadata
-#     doc = db.query(Document).filter(Document.id == doc_id).first()
-#     if not doc:
-#         raise HTTPException(status_code=404, detail="Document not found")
+@router.delete("/{doc_id}")
+def delete_document(doc_id: str, db: Session = Depends(get_db)):
 
-#     # 2. hapus file upload
-#     file_path = os.path.join(UPLOAD_DIR, doc.filename)
-#     if os.path.exists(file_path):
-#         os.remove(file_path)
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
 
-#     # 3. hapus embeddings
-#     delete_document_embeddings(doc_id)
+    # 1. Hapus file upload
+    file_path = os.path.join(UPLOAD_DIR, doc.filename)
+    if os.path.exists(file_path):
+        os.remove(file_path)
 
-#     # 4. hapus metadata dari database
-#     db.delete(doc)
-#     db.commit()
+    # 2. Hapus embeddings
+    delete_document_embeddings(doc_id)
 
-#     return {
-#         "message": f"Document {doc_id} deleted completely",
-#         "deleted": {
-#             "file": True,
-#             "embeddings": True,
-#             "metadata": True,
-#             "extract": True,     # karena extracted_text berada di metadata
-#         }
-#     }
+    # 3. Hapus row metadata
+    db.delete(doc)
+    db.commit()
+
+    return {
+        "message": f"Document {doc_id} deleted completely",
+        "deleted": {
+            "file": True,
+            "embeddings": True,
+            "metadata": True,
+            "extract": True,
+        }
+    }
 
 # @router.delete("/")
 # def delete_all_documents(db: Session = Depends(get_db)):

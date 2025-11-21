@@ -43,11 +43,16 @@ def delete_document_embeddings(doc_id: str):
     client = get_client("/data/chroma")
     collection = client.get_or_create_collection("documents")
 
-    # ambil semua id embeddings
-    all_ids = collection.get()["ids"]
+    # Ambil SEMUA vector tanpa include
+    data = collection.get()
+    
+    if not data or "ids" not in data:
+        return
 
-    # filter semua embedding milik dokumen ini
-    target_ids = [eid for eid in all_ids if eid.startswith(f"{doc_id}_")]
+    all_ids = data["ids"]
+
+    # Filter vector yang sesuai prefix doc_id
+    target_ids = [eid for eid in all_ids if eid.startswith(f"{doc_id}-")]
 
     if target_ids:
         collection.delete(ids=target_ids)
