@@ -48,7 +48,7 @@ export default function UploadModal({
 
         <input
           type="file"
-          className="mb-4"
+          className="mb-4 border-dashed border-2 border-black p-2 rounded-xl bg-neutral-200"
           onChange={(e) => {
             const f = e.target.files?.[0] || null;
             setFile(f);

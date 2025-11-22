@@ -110,7 +110,7 @@ export default function ChatWindow({ sessionId }: Props) {
         <span>Chat Knowledge Agent</span>
       </div>
 
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 overflow-auto">
         <div className="max-w-3xl mx-auto px-4 py-6">
           {!hasMessages && (
             <div className="text-center text-neutral-400 text-sm mt-20 space-y-2">

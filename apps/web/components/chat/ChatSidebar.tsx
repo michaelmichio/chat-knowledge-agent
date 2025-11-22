@@ -12,7 +12,7 @@ import UploadButton from "./UploadButton";
 import UploadModal from "./UploadModal";
 import KnowledgeList, { KnowledgeListRef } from "./KnowledgeList";
 import { Separator } from "@/components/ui/separator";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface Props {
   currentSessionId: string | null;
@@ -35,6 +35,10 @@ export default function ChatSidebar({ currentSessionId }: Props) {
       return res.data;
     },
   });
+
+  useEffect(() => {
+    refetch()
+  }, [currentSessionId])
 
   const handleNewChat = () => {
     router.push("/");
@@ -59,7 +63,7 @@ export default function ChatSidebar({ currentSessionId }: Props) {
 
   return (
     <>
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col w-full">
         <div className="p-3 border-b space-y-2">
           <Button
             variant="default"
@@ -81,6 +85,7 @@ export default function ChatSidebar({ currentSessionId }: Props) {
                 Loading sessions...
               </p>
             )}
+
             {!isLoading && (!sessions || sessions.length === 0) && (
               <p className="text-xs text-neutral-400 px-2">No sessions yet</p>
             )}
@@ -98,31 +103,33 @@ export default function ChatSidebar({ currentSessionId }: Props) {
                   onClick={() => handleOpenSession(s.id)}
                 >
                   <MessageSquare className="w-4 h-4 text-neutral-500" />
-                  <span className="truncate">{s.title || "New chat"}</span>
+                  <span className="text-sm">{s.title || "New chat"}</span>
                 </button>
-                <button
-                  className="opacity-0 group-hover:opacity-100 text-neutral-400 hover:text-red-500"
+
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => handleDeleteSession(s.id)}
                 >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                  <Trash2 className="w-4 h-4 text-red-500" />
+                </Button>
               </div>
             ))}
           </div>
+
+          <Separator className="my-3" />
+
+          <p className="px-3 text-xs font-medium text-neutral-500 mb-1">
+            Knowledge
+          </p>
+
+          <KnowledgeList ref={knowledgeRef} />
         </ScrollArea>
-
-        <Separator className="my-3" />
-
-        <p className="px-3 text-xs font-medium text-neutral-500 mb-1">
-          Knowledge
-        </p>
-
-        <KnowledgeList ref={knowledgeRef} />
 
         <div className="p-3 border-t text-[11px] text-neutral-400">
           Chat Knowledge Agent
           <br />
-          UI mirip ChatGPT (light mode)
+          UI (light mode)
         </div>
       </div>
 
