@@ -1,0 +1,15 @@
+{
+  "name": "chat-knowledge-agent",
+  "version": "1.0.0",
+  "description": "backend (FastAPI + PostgreSQL) and frontend (Next.js) using Docker Compose.",
+  "scripts": {
+    "build": "bash scripts/build.sh",
+    "start": "bash scripts/start.sh",
+    "stop": "docker compose down",
+    "logs": "docker compose logs -f",
+    "logs:backend": "docker compose logs -f backend",
+    "logs:frontend": "docker compose logs -f frontend"
+  },
+  "author": "Michael",
+  "license": "MIT"
+}
