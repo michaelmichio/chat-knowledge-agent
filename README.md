@@ -1,10 +1,12 @@
 # STACK
+```bash
 🧱 Backend: FastAPI
 🎨 Frontend: Next.js (v15+ dengan App Router + Tailwind + React Query)
 🧠 Vector DB: Chroma
 🗃️ Database: PostgreSQL
 ⚡ Cache: Redis
 🐳 Orchestrator: Docker Compose
+```
 
 # PIPELINE DATA SINGKAT
 ```bash
