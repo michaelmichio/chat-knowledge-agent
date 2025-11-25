@@ -34,6 +34,8 @@ services:
       - backend
     volumes:
       - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
     networks:
       - chatnet
 
